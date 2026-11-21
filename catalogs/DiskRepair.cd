@@ -1,0 +1,532 @@
+## DiskRepair.cd - catalog description (single source of truth for all
+## translatable strings).  CatComp/FlexCat-compatible.
+##
+## Generate the C header:   python3 support/gencat.py header DiskRepair.cd ../src/diskrepair_strings.h
+## Make a translation tmpl:  python3 support/gencat.py ct DiskRepair.cd deutsch.ct deutsch
+## Compile a .catalog:        python3 support/gencat.py catalog DiskRepair.cd deutsch.ct DiskRepair.catalog
+##
+## RULES FOR EDITORS:
+##   * Append new messages at the END of the file, never insert in the
+##     middle - ids are positional and must stay stable for existing catalogs.
+##   * Keep printf-style %-placeholders identical in translations (same
+##     count and order; %% is a literal percent sign).
+##   * Button strings keep their "|" separators.
+##   * The CLI confirmation word YES is not translated: the program always
+##     checks for the letters Y E S.
+##   * MSG_LOSTFOUND_NAME and MSG_DELETED_NAME become directory names at the
+##     rescue destination: no "/" or ":" in them.
+##
+#language english
+#version 1
+#name DiskRepair
+;
+;==========================================================================
+; Common
+;==========================================================================
+MSG_OK
+OK
+;
+MSG_CANCEL
+Cancel
+;
+MSG_APPNAME
+DiskRepair
+;
+MSG_OUT_OF_MEMORY
+Out of memory.
+;
+MSG_ROOT_DIR
+(root directory)
+;
+MSG_BITMAP_NAME
+(bitmap)
+;
+MSG_LOSTFOUND_NAME
+Lost+Found
+;
+MSG_LOSTFOUND_SHOWN
+(lost)
+;
+MSG_DELETED_NAME
+Deleted
+;
+MSG_SEV_WARNING
+Warning
+;
+MSG_SEV_ERROR
+Error
+;
+MSG_SEV_FATAL
+Stopped
+;
+MSG_SEV_FIX
+Repair
+;
+;==========================================================================
+; Block classes and map notes (PFS3 / SFS basic check)
+;==========================================================================
+MSG_CLASS_FREE
+free
+;
+MSG_CLASS_DATA
+data
+;
+MSG_CLASS_FRAG
+fragmented
+;
+MSG_CLASS_SYSTEM
+system
+;
+MSG_CLASS_RESERVED
+reserved
+;
+MSG_CLASS_UNKNOWN
+unknown
+;
+MSG_NOTE_UNSUPPORTED_FS
+unsupported filesystem type
+;
+MSG_NOTE_EMPTY_PARTITION
+empty partition
+;
+MSG_NOTE_NO_MEMORY_MAP
+out of memory (%lu KB needed for the map)
+;
+MSG_NOTE_CANCELLED
+cancelled
+;
+MSG_NOTE_SCAN_FAILED
+scan failed
+;
+MSG_M_UNREADABLE
+The filesystem structures cannot be read: %s
+;
+MSG_M_UNKNOWN
+%lu blocks are marked used but belong to nothing that was found.
+;
+MSG_M_SUMMARY
+%lu directories, %lu files; %lu of %lu blocks in use.
+;
+MSG_M_BASIC_ONLY
+Only a basic check exists for this filesystem so far; repair and rescue are not supported yet.
+;
+;==========================================================================
+; Progress
+;==========================================================================
+MSG_PROG_TREE
+Checking directories
+;
+MSG_PROG_ORPHANS
+Searching for lost files
+;
+;==========================================================================
+; OFS/FFS findings
+;==========================================================================
+MSG_F_BOOTBLOCK
+The boot block does not carry a DOS type (found 0x%08lx).
+;
+MSG_F_NOROOT
+No valid root block (expected at block %lu). The directory tree cannot be followed.
+;
+MSG_F_ROOT_MOVED
+The root block is at %lu, not at the usual place %lu.
+;
+MSG_F_BM_INVALID
+The bitmap is flagged invalid (the volume was not validated).
+;
+MSG_F_BM_EXTBROKEN
+The chain of bitmap extension blocks is broken.
+;
+MSG_F_BM_BADPAGES
+%lu of %lu bitmap blocks are unreadable or have a bad checksum.
+;
+MSG_F_BM_USEDFREE
+%lu blocks are in use but marked free in the bitmap (they would be overwritten).
+;
+MSG_F_BM_FREEUSED
+%lu blocks are marked used but belong to nothing (lost space).
+;
+MSG_F_ENTRY_RANGE
+'%s': an entry points outside the volume (block %lu).
+;
+MSG_F_ENTRY_READ
+'%s': the header at block %lu cannot be read.
+;
+MSG_F_ENTRY_HEADER
+'%s': block %lu is not a valid file or directory header.
+;
+MSG_F_ENTRY_LOOP
+'%s': block %lu is listed a second time.
+;
+MSG_F_DEPTH
+'%s': directories nested too deep, not followed.
+;
+MSG_F_PARENT
+'%s': the parent pointer names another directory.
+;
+MSG_F_HASH
+'%s': filed in the wrong hash chain (cannot be opened by name).
+;
+MSG_F_CROSSLINK
+'%s': block %lu is also used by something else.
+;
+MSG_F_DIRCACHE
+'%s': directory cache block %lu is damaged.
+;
+MSG_F_FILE_BADPTR
+'%s': invalid data block pointer (%lu of %lu blocks can be reached).
+;
+MSG_F_FILE_BADEXT
+'%s': extension block chain broken (%lu of %lu blocks can be reached).
+;
+MSG_F_FILE_SHORT
+'%s': the size needs %lu blocks, only %lu are listed.
+;
+MSG_F_FILE_LONG
+'%s': %lu blocks listed, the size needs only %lu.
+;
+MSG_F_FILE_DATA
+'%s': %lu data blocks are unreadable or invalid.
+;
+MSG_F_LINK_BAD
+'%s': the link target (block %lu) is invalid.
+;
+MSG_F_ORPH_DIR
+Lost directory '%s' (block %lu) can be attached again.
+;
+MSG_F_ORPH_FILE
+Lost file '%s' (block %lu) can be attached again.
+;
+MSG_F_ORPH_CONFLICT
+Lost file '%s' (block %lu) is damaged or shares blocks with other files; rescue only.
+;
+MSG_F_ORPH_FOUND
+Lost objects: %lu (can be attached again: %lu). Deleted files still on the disk: %lu.
+;
+MSG_F_READERRORS
+%lu blocks could not be read from the device.
+;
+MSG_F_SUMMARY
+%lu directories, %lu files, %lu links checked.
+;
+;==========================================================================
+; Check verdicts and notes
+;==========================================================================
+MSG_C_MOUNTED_NOTE
+The volume is mounted; if it is being written to, some findings may be passing states.
+;
+MSG_C_REPAIR_UNSUPPORTED
+Repair in place is not supported for this filesystem yet.
+;
+MSG_C_RESCUE_UNSUPPORTED
+Rescue is not supported for this filesystem yet.
+;
+MSG_V_CLEAN
+No problems found.
+;
+MSG_V_WARN
+Minor problems only.
+;
+MSG_V_DAMAGED
+The volume is damaged. DRYRUN shows what a repair in place would do; RESCUE=<path> copies the files to another place.
+;
+MSG_V_FAILED
+The volume cannot be checked this way. RESCUE=<path> may still find files.
+;
+;==========================================================================
+; Repair in place
+;==========================================================================
+MSG_FIX_CUT
+Cut the link to bad block %lu in '%s'.
+;
+MSG_FIX_DAMAGED
+Take damaged '%s' out of its directory (the header stays on the disk for a rescue).
+;
+MSG_FIX_PARENT
+Correct the parent pointer of '%s'.
+;
+MSG_FIX_REHASH
+File '%s' under the right hash chain.
+;
+MSG_FIX_ATTACH
+Attach lost '%s' to its directory again.
+;
+MSG_FIX_ATTACH_LF
+Put lost '%s' into Lost+Found.
+;
+MSG_FIX_LOSTFOUND
+Create the directory Lost+Found (block %lu).
+;
+MSG_FIX_BITMAP
+Rebuild the bitmap (%lu blocks rewritten).
+;
+MSG_R_BOOT_VOLUME
+%s: is the boot volume. Boot from another disk to repair it in place.
+;
+MSG_R_NEED_UNDO
+An undo file on another volume is required: UNDOFILE=<path>.
+;
+MSG_R_NO_ROOT
+Without a root block this volume cannot be repaired in place.
+;
+MSG_R_READ_ERRORS
+The device reports unreadable blocks; a repair in place would be guesswork.
+;
+MSG_R_DIRCACHE
+Directory-cache volumes (DOS\\4, DOS\\5) cannot have their directories repaired in place yet.
+;
+MSG_R_BITMAP_BLOCKS
+The bitmap blocks themselves are damaged or shared; the bitmap cannot be rebuilt in place.
+;
+MSG_R_UNRESOLVED
+The repair does not reach a consistent state.
+;
+MSG_R_NO_LOSTFOUND
+'%s': no Lost+Found directory could be made; left as it is.
+;
+MSG_R_NAMECLASH
+'%s' (block %lu): the directory already has an entry of that name; left as it is.
+;
+MSG_R_NOTHING
+Nothing to repair.
+;
+MSG_R_DRY_SUMMARY
+Dry run: %lu blocks would be written. Nothing was changed.
+;
+MSG_R_DONE
+Repaired: %lu blocks written. The old contents are in %s (UNDO puts them back).
+;
+MSG_R_WRITE_FAILED
+Writing block %lu failed. Put the old state back with UNDO UNDOFILE=%s.
+;
+MSG_R_CROSSLINK_LEFT
+%lu blocks are shared between files; the contents of those files cannot be trusted.
+;
+MSG_R_UNTOUCHED
+The volume was not changed. Use RESCUE to copy the files to another place.
+;
+;==========================================================================
+; Undo file
+;==========================================================================
+MSG_U_CANNOT_CREATE
+Cannot create the undo file %s.
+;
+MSG_U_WRITE_FAILED
+Writing the undo file %s failed; nothing was changed.
+;
+MSG_U_SAME_VOLUME
+%s is on the volume being worked on; choose another volume.
+;
+MSG_U_CANNOT_OPEN
+Cannot open the undo file %s.
+;
+MSG_U_NOT_UNDO
+%s is not a DiskRepair undo file.
+;
+MSG_U_OTHER_VOLUME
+The undo file %s belongs to another partition.
+;
+MSG_U_SHORT
+The undo file ends early (%lu of %lu blocks restored).
+;
+MSG_U_BLOCK_FAILED
+Block %lu could not be written back.
+;
+MSG_U_RESTORED
+%lu blocks put back.
+;
+;==========================================================================
+; Rescue
+;==========================================================================
+MSG_S_SAME_VOLUME
+%s is on the damaged volume itself; choose another volume.
+;
+MSG_S_BAD_DEST
+Cannot use %s as the destination directory.
+;
+MSG_S_NO_ROOT
+No root block: every file and directory header found on the disk is copied.
+;
+MSG_S_CANNOT_CREATE
+Cannot create %s.
+;
+MSG_S_CANNOT_MKDIR
+Cannot create the directory %s.
+;
+MSG_S_WRITE_FAILED
+Writing %s failed (destination full?).
+;
+MSG_S_PARTIAL
+%s: incomplete (%lu of %lu bytes, %lu bad blocks filled with zeros).
+;
+MSG_S_LINK_SKIPPED
+%s: link not copied.
+;
+MSG_S_SUMMARY
+Rescued %lu files in %lu directories (%lu KB). Incomplete: %lu. Failed: %lu. From lost directories and files: %lu. Deleted: %lu.
+;
+;==========================================================================
+; Platform
+;==========================================================================
+MSG_P_CANNOT_INHIBIT
+Cannot take %s: away from its filesystem (error %ld): files open or writes pending.
+;
+;==========================================================================
+; CLI
+;==========================================================================
+MSG_CLI_TYPE_YES
+Type YES to go on: 
+;
+MSG_CLI_CANCELLED
+Cancelled.\n
+;
+MSG_CLI_NO_PARTITIONS
+No partitions found.\n
+;
+MSG_CLI_LIST_HEADER
+Name   Volume            Filesystem        Size      Device\n
+;
+MSG_CLI_LIST_ROW
+%-6s %-17s %-17s %-9s %s unit %lu%s\n
+;
+MSG_CLI_BOOT_SUFFIX
+ (boot)
+;
+MSG_CLI_CANNOT_OPEN_IMAGE
+Cannot open image %s\n
+;
+MSG_CLI_PARTITION_NOT_FOUND
+Partition not found. Use LIST to see what is there.\n
+;
+MSG_CLI_CANNOT_OPEN_UNIT
+Cannot open %s unit %lu\n
+;
+MSG_CLI_VOLUME_LINE
+%s: (%s)  %s  %s\n
+;
+MSG_CLI_REPAIR_WARNING
+REPAIR writes to %s: on %s. It only does so when the result passes the check,\nand the old blocks are saved to the undo file first - but a damaged disk is a\ndamaged disk. If the data matters, run RESCUE first.\n
+;
+MSG_CLI_UNDO_WARNING
+UNDO writes saved blocks back to %s: from %s.\n
+;
+MSG_CLI_MORE_LINES
+... and %lu more of that kind (ALL shows every line).\n
+;
+;==========================================================================
+; Window
+;==========================================================================
+MSG_BTN_CHECK
+Check
+;
+MSG_BTN_PLAN
+Repair plan
+;
+MSG_BTN_REPAIR
+Repair
+;
+MSG_BTN_RESCUE
+Rescue
+;
+MSG_BTN_UNDO
+Undo
+;
+MSG_BTN_STOP
+Stop
+;
+MSG_BTN_IMAGE
+Image...
+;
+MSG_BTN_RESCAN
+Volumes
+;
+MSG_BTN_ABOUT
+About
+;
+MSG_CB_DEEP
+Read all data
+;
+MSG_CB_LOST
+Search lost files
+;
+MSG_CB_DELETED
+Rescue deleted too
+;
+MSG_LBL_DEST
+Rescue to
+;
+MSG_LBL_UNDO
+Undo file
+;
+MSG_GUI_SELECT
+Select a partition, then Check.
+;
+MSG_GUI_NO_PARTITIONS
+No partitions found. Image... opens a disk image file.
+;
+MSG_GUI_PROGRESS_PCT
+%s... %lu%%
+;
+MSG_GUI_PROGRESS_COUNT
+%s... %lu
+;
+MSG_GUI_NEED_DEST
+Enter where to rescue to (a directory on another volume).
+;
+MSG_GUI_NEED_UNDO
+Enter a name for the undo file (on another volume).
+;
+MSG_GUI_REPAIR_BODY
+Repair %s: in place?\n\nBlocks are only written when the result passes\nthe check, and the old blocks are saved to\n%s first.\n\nIf the data matters, use Rescue first.
+;
+MSG_GUI_REPAIR_GADS
+Repair|Cancel
+;
+MSG_GUI_UNDO_BODY
+Write the blocks saved in\n%s\nback to %s:?
+;
+MSG_GUI_UNDO_GADS
+Undo|Cancel
+;
+MSG_GUI_CANNOT_OPEN
+Cannot open the device or image.
+;
+MSG_GUI_HEAD
+--- %s: %s ---
+;
+MSG_GUI_JOB_CHECK
+Check
+;
+MSG_GUI_JOB_PLAN
+Repair plan
+;
+MSG_GUI_JOB_REPAIR
+Repair
+;
+MSG_GUI_JOB_RESCUE
+Rescue
+;
+MSG_GUI_JOB_UNDO
+Undo
+;
+MSG_GUI_V_DAMAGED
+The volume is damaged. "Repair plan" shows what a repair in place would do; "Rescue" copies the files to another place.
+;
+MSG_GUI_V_FAILED
+The volume cannot be checked this way. "Rescue" may still find files.
+;
+MSG_GUI_STOPPED
+Stopped.
+;
+MSG_GUI_DONE
+%s finished: %lu errors, %lu warnings.
+;
+MSG_GUI_IMAGE_TITLE
+Select a disk image
+;
+MSG_GUI_NO_ASL
+asl.library is needed for the file requester.
+;
+MSG_ABOUT_BODY
+DiskRepair %s (%s)\n\nChecks and repairs Amiga filesystems, or\ncopies what is readable to another place.\n\nExperimental. No responsibility is taken\nfor lost data.
+;

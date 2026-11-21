@@ -1,0 +1,4 @@
+Echo "DiskRepair boot floppy"
+Echo "Pick the volume, then Check. Close DiskRepair, remove the floppy and reboot when done."
+SYS:DiskRepair
+Echo "DiskRepair has exited. Remove the floppy and reboot."

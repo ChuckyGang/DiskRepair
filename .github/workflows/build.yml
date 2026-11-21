@@ -1,0 +1,155 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate icon
+        run: |
+          pip install pillow -q
+          make icon
+
+      # Bartman's m68k-amiga-elf-gcc + elf2hunk, fetched from the VS Code
+      # extension's .vsix (same toolchain the F5 debug loop uses).
+      - name: Cache Bartman toolchain
+        id: bartman-cache
+        uses: actions/cache@v4
+        with:
+          path: bartman
+          key: bartman-amiga-debug-1.8.2
+
+      - name: Fetch Bartman toolchain
+        if: steps.bartman-cache.outputs.cache-hit != 'true'
+        env:
+          BARTMAN_VERSION: 1.8.2
+        run: |
+          curl -fsSL -o bartman.vsix \
+            "https://bartmanabyss.gallery.vsassets.io/_apis/public/gallery/publisher/bartmanabyss/extension/amiga-debug/${BARTMAN_VERSION}/assetbyname/Microsoft.VisualStudio.Services.VSIXPackage"
+          unzip -q bartman.vsix -d bartman
+          rm bartman.vsix
+
+      - name: Build with Bartman toolchain
+        run: |
+          BARTMAN="$PWD/bartman/extension/bin/linux"
+          chmod +x "$BARTMAN/elf2hunk"
+          find "$BARTMAN/opt/bin" "$BARTMAN/opt/libexec" "$BARTMAN/opt/m68k-amiga-elf/bin" \
+               -type f -exec chmod +x {} +
+          make TOOLCHAIN=bartman BARTMAN="$BARTMAN"
+
+      - name: Upload binary + icon
+        uses: actions/upload-artifact@v4
+        with:
+          name: DiskRepair
+          path: |
+            out/DiskRepair
+            out/DiskRepair.info
+          if-no-files-found: error
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build native Linux CLI and window
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q libsdl2-dev
+          make linux
+          make linux-gui
+
+      # Damage scenarios and random damage on FFS, OFS and DOS\3 images:
+      # check, rescue, dry run, repair, undo - verified by an independent reader.
+      - name: Repair and rescue tests
+        run: |
+          pip install amitools machine68k==0.3.0 -q
+          python3 test/repairtest.py all --fuzz 60
+
+      - name: Window test (headless)
+        run: python3 test/guitest.py
+
+      - name: Upload Linux binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: diskrepair-linux-x86_64
+          path: |
+            host/diskrepair
+            host/diskrepair-gui
+          if-no-files-found: error
+
+  release:
+    needs: [build, build-linux]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Download built binary
+        uses: actions/download-artifact@v4
+        with:
+          name: DiskRepair
+          path: out
+      - name: Download Linux binary
+        uses: actions/download-artifact@v4
+        with:
+          name: diskrepair-linux-x86_64
+          path: linux-out
+      - name: Set release date
+        id: date
+        run: echo "DATE=$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
+      - name: Build bootable floppy image
+        run: |
+          pip install amitools machine68k==0.3.0 -q
+          sh support/make_adf.sh out/DiskRepair "DiskRepair-${{ steps.date.outputs.DATE }}-PROTO.adf"
+      - name: Create LHA archive
+        run: |
+          ARCHIVE="DiskRepair-${{ steps.date.outputs.DATE }}-PROTO.lha"
+          python3 support/make_lha.py "$ARCHIVE" \
+            "DiskRepair:out/DiskRepair" \
+            "DiskRepair.info:out/DiskRepair.info" \
+            "README.md:README.md" \
+            "Catalogs/DiskRepair.cd:catalogs/DiskRepair.cd" \
+            "Catalogs/README.txt:catalogs/README.txt" \
+            "support/gencat.py:support/gencat.py"
+          ls -lh "$ARCHIVE"
+      - name: Replace rolling PROTO release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete proto --yes 2>/dev/null || true
+          git push --delete origin proto 2>/dev/null || true
+          gh release create proto \
+            --title "DiskRepair ${{ steps.date.outputs.DATE }} PROTO" \
+            --notes "Automated prototype build from commit \`${{ github.sha }}\`. Amiga program (LHA), bootable floppy image (ADF, for repairing the boot volume), Linux CLI and Linux window (needs the SDL2 runtime)." \
+            --prerelease \
+            "DiskRepair-${{ steps.date.outputs.DATE }}-PROTO.lha" \
+            "DiskRepair-${{ steps.date.outputs.DATE }}-PROTO.adf" \
+            "linux-out/diskrepair#diskrepair-linux-x86_64" \
+            "linux-out/diskrepair-gui#diskrepair-gui-linux-x86_64"
+
+      # The rolling "proto" release is replaced on every push; keep a dated
+      # copy as well so earlier builds stay downloadable (as AmiPart does).
+      - name: Keep a dated copy of this build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="proto-${{ steps.date.outputs.DATE }}-${GITHUB_SHA::7}"
+          gh release create "$TAG" \
+            --title "DiskRepair ${{ steps.date.outputs.DATE }} (${GITHUB_SHA::7})" \
+            --notes "Archived prototype build from commit \`${{ github.sha }}\`. The rolling \`proto\` release always has the newest build." \
+            --prerelease \
+            "DiskRepair-${{ steps.date.outputs.DATE }}-PROTO.lha" \
+            "DiskRepair-${{ steps.date.outputs.DATE }}-PROTO.adf" \
+            "linux-out/diskrepair#diskrepair-linux-x86_64" \
+            "linux-out/diskrepair-gui#diskrepair-gui-linux-x86_64"

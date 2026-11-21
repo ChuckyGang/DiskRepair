@@ -1,0 +1,12 @@
+obj/
+out/
+test/*.hdf
+test/work/
+host/diskrepair
+host/diskrepair-gui
+# emulator droppings when the repo dir is mounted as a drive
+Disk.info
+Disk.info.uaem
+__pycache__/
+host/gobj/
+src/diskrepair_strings.h
