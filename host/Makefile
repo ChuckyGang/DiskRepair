@@ -1,6 +1,6 @@
 # Host (Linux) DiskRepair: the CLI (plain gcc, no deps) and the window
 # (needs libsdl2-dev).  Both run the same core on image files and raw disks.
-CORE = carr volume fsmap pfs_map pfs_core sfs_map blockdev clib build report ffs ffs_scan ffs_repair ffs_rescue undo fscheck
+CORE = carr volume fsmap pfs_map pfs_core sfs_map blockdev clib build report ffs ffs_scan ffs_repair ffs_rescue resc_common pfs_rescue sfs_rescue undo fscheck
 CORESRC = $(addprefix ../src/,$(addsuffix .c,$(CORE)))
 SRCS = ../src/cli.c $(CORESRC) amiga_shim.c host_rdargs.c host_locale.c host_platform.c host_main.c
 STRINGS_H = ../src/diskrepair_strings.h

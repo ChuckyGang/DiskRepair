@@ -13,7 +13,8 @@ matters: rescue first, repair second.
 | | OFS / FFS (DOS\0 - DOS\5) | PFS3 | SFS |
 |---|---|---|---|
 | Check (read-only) | yes | basic | basic |
-| Rescue to another path | yes | not yet | not yet |
+| Rescue to another path | yes | yes | yes (SFS\0) |
+| Undelete to another path | yes, also after a quick format | the files in PFS3's deldir | the files in SFS's `.recycled` |
 | Repair in place | yes (directories on DOS\4/5: not yet) | not yet | not yet |
 
 Long-filename FFS (DOS\6, DOS\7) is refused for now.
@@ -35,6 +36,14 @@ volume. The same function is the **unformat**: a quick format only writes a
 new root block and bitmap, so everything the volume held before counts as
 deleted and comes out with its directory tree. Files whose blocks have been
 reused since are copied too, with a warning.
+
+On **PFS3** a directory is put together from its anode chain and, when that
+is broken, from the directory blocks themselves (each one names its
+directory). Directory blocks nothing leads to become `Lost+Found/Dir_<n>` -
+the name of a lost directory is gone with the entry that pointed to it.
+**SFS** works the same way with its object containers. Deleted files are
+what the filesystem itself still keeps: PFS3's deldir (names only, no
+directories) and SFS's recycled directory.
 
 **Repair in place** follows one rule: *nothing is written unless the result
 passes the check.* The whole repair is worked out on a copy of the affected
@@ -135,6 +144,7 @@ these tests. Images of really broken disks are very welcome.
     src/undo.c          the undo file
     src/fscheck.c       dispatch per filesystem (what front ends call)
     src/pfs_*.c, sfs_map.c, fsmap.c    PFS3 / SFS structure walk (basic check)
+    src/pfs_rescue.c, sfs_rescue.c, resc_common.c   PFS3 / SFS rescue and undelete
     src/cli.c, gui.c    the two front ends
     src/platform_amiga.c, host/host_platform.c   inhibit, rescue destination
     host/               Linux build: AmigaOS shim, ReadArgs, SDL2 GUI layer

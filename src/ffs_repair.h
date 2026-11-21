@@ -38,4 +38,11 @@ LONG FfsRescue_Run(struct BlockDev *bd, const struct VolumeInfo *vi,
                    const struct RescueOpts *opts, struct Report *rep,
                    struct RescueStats *st);
 
+LONG SfsRescue_Run(struct BlockDev *bd, const struct VolumeInfo *vi,
+                   const struct RescueOpts *opts, struct Report *rep,
+                   struct RescueStats *st);
+LONG PfsRescue_Run(struct BlockDev *bd, const struct VolumeInfo *vi,
+                   const struct RescueOpts *opts, struct Report *rep,
+                   struct RescueStats *st);
+
 #endif /* FFS_REPAIR_H */

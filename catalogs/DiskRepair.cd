@@ -108,7 +108,7 @@ MSG_M_SUMMARY
 %lu directories, %lu files; %lu of %lu blocks in use.
 ;
 MSG_M_BASIC_ONLY
-Only a basic check exists for this filesystem so far; repair and rescue are not supported yet.
+Only a basic check exists for this filesystem so far. Rescue and Undelete work; repair in place is not supported yet.
 ;
 ;==========================================================================
 ; Progress
@@ -553,4 +553,16 @@ MSG_S_DEL_OVERWRITTEN
 ;
 MSG_S_UNDEL_NONE
 No deleted files were found on this volume.
+;
+MSG_S_DIR_DAMAGED
+Directory '%s' is damaged; only part of its contents could be read.
+;
+MSG_S_NO_ROOTDIR
+The root directory cannot be read; whatever directories are found on the disk are copied.
+;
+MSG_S_LOSTDIR_NAME
+Dir_%lu
+;
+MSG_S_SFS2
+This version of SFS (SFS\\2) is not supported for rescue yet.
 ;

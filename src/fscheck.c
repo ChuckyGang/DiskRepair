@@ -14,7 +14,7 @@
 static BOOL is_ffs(const struct VolumeInfo *vi) { return vi->fskind == FS_FFS && (vi->dostype & 7) < 6; }
 
 BOOL Fs_CanRepair(const struct VolumeInfo *vi) { return is_ffs(vi); }
-BOOL Fs_CanRescue(const struct VolumeInfo *vi) { return is_ffs(vi); }
+BOOL Fs_CanRescue(const struct VolumeInfo *vi) { return is_ffs(vi) || vi->fskind == FS_PFS || vi->fskind == FS_SFS; }
 
 static BOOL map_progress(void *ud, ULONG done, ULONG total, const char *what)
 {
@@ -78,7 +78,8 @@ LONG Fs_Rescue(struct BlockDev *bd, const struct VolumeInfo *vi, const char *des
     if (Plat_PathOnVolume(dest, vi)) { Rep_Add(rep, SEV_FATAL, GS(MSG_S_SAME_VOLUME), dest); return RETURN_FAIL; }
     err[0] = '\0';
     if (!Out_Begin(dest, err, sizeof(err))) { Rep_Add(rep, SEV_FATAL, "%s", err); return RETURN_FAIL; }
-    rc = FfsRescue_Run(bd, vi, o, rep, st);
+    rc = vi->fskind == FS_PFS ? PfsRescue_Run(bd, vi, o, rep, st) :
+         vi->fskind == FS_SFS ? SfsRescue_Run(bd, vi, o, rep, st) : FfsRescue_Run(bd, vi, o, rep, st);
     Out_End();
     Rep_Add(rep, SEV_INFO, GS(MSG_S_SUMMARY), (unsigned long)st->files, (unsigned long)st->dirs,
             (unsigned long)st->bytes_kb, (unsigned long)st->partial, (unsigned long)st->failed,
