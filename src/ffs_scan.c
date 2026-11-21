@@ -482,6 +482,41 @@ void FfsScan_Attach(struct FfsScan *s)
 /* the read-only check                                                  */
 /* ------------------------------------------------------------------ */
 
+/* Names the deleted files a check came across.  Complete means: every
+ * block of the list is there and none belongs to something else now. */
+#define DEL_LIST_MAX 100
+static void list_deleted(struct FfsScan *s)
+{
+    struct FfsVol *v = s->v;
+    UBYTE *hdr;
+    ULONG  i, listed = 0, more = 0;
+
+    if (!s->deleted) return;
+    hdr = (UBYTE *)AllocVec(v->bsz, MEMF_PUBLIC);
+    if (!hdr) return;
+    for (i = 0; i < s->norph; i++) {
+        struct FfsOrphan *o = &s->orph[i];
+        struct FileCtx c;
+        char  nm[FFS_MAXNAME + 2];
+        ULONG flags, count = 0, size, expect;
+
+        if (!o->deleted || o->sectype != FFS_ST_FILE) continue;
+        if (listed >= DEL_LIST_MAX) { more++; continue; }
+        if (!ffs_rd(v, o->key, 1, hdr) || ffs_header_type(v, hdr, o->key) != FFS_ST_FILE) continue;
+        ffs_name(hdr + (v->nl - FFS_E_NAME) * 4, FFS_MAXNAME, nm, sizeof(nm));
+        c.s = s; c.path = nm; c.key = o->key; c.conflicts = 0; c.bad_data = 0; c.mode = 1;
+        flags  = ffs_file_blocks(v, o->key, hdr, file_cb, &c, &count);
+        size   = ffs_getl(hdr, v->nl - FFS_E_BYTESIZE);
+        expect = size ? (size + v->datasize - 1) / v->datasize : 0;
+        NOTE(s, SEV_INFO, GS((flags || c.conflicts || count < expect) ? MSG_F_DEL_PARTLY : MSG_F_DEL_OK),
+             nm, (unsigned long)size);
+        listed++;
+    }
+    if (more) NOTE(s, SEV_INFO, GS(MSG_F_DEL_MORE), (unsigned long)more);
+    if (listed) NOTE(s, SEV_INFO, "%s", GS(MSG_F_DEL_HINT));
+    FreeVec(hdr);
+}
+
 LONG FfsCheck_Run(struct BlockDev *bd, const struct VolumeInfo *vi,
                   const struct FfsScanOpts *o, struct Report *rep)
 {
@@ -508,6 +543,7 @@ LONG FfsCheck_Run(struct BlockDev *bd, const struct VolumeInfo *vi,
         if (tree) FfsScan_Attach(&s);
         Rep_Add(rep, s.lost ? SEV_WARN : SEV_INFO, GS(MSG_F_ORPH_FOUND),
                 (unsigned long)s.lost, (unsigned long)s.attachable, (unsigned long)s.deleted);
+        list_deleted(&s);
     }
     if (tree) {
         /* lost space is only a finding when nothing lost explains it */

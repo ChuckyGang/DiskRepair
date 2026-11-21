@@ -19,6 +19,7 @@ void host_usage(void)
            "Usage: diskrepair IMAGE=<file> LIST\n"
            "       diskrepair IMAGE=<file> [PART=<name|index>] [DEEP] [LOST]        check (read-only)\n"
            "       diskrepair IMAGE=<file> [PART=...] RESCUE=<directory> [DELETED]   copy the files out\n"
+           "       diskrepair IMAGE=<file> [PART=...] UNDELETE=<directory>           copy only deleted files out\n"
            "       diskrepair IMAGE=<file> [PART=...] DRYRUN                         show the repair plan\n"
            "       diskrepair IMAGE=<file> [PART=...] REPAIR UNDOFILE=<file> [FORCE] repair in place\n"
            "       diskrepair IMAGE=<file> [PART=...] UNDO UNDOFILE=<file> [FORCE]   put the old blocks back\n"

@@ -29,6 +29,13 @@ to a path you give, then everything it found outside the tree into
 into `Deleted`). It works without a root block. A file with unreadable or
 missing blocks is still copied and listed as incomplete.
 
+**Undelete** copies only the deleted files that are still on the disk to a
+path you give, in the directories they were in. Nothing is written to the
+volume. The same function is the **unformat**: a quick format only writes a
+new root block and bitmap, so everything the volume held before counts as
+deleted and comes out with its directory tree. Files whose blocks have been
+reused since are copied too, with a warning.
+
 **Repair in place** follows one rule: *nothing is written unless the result
 passes the check.* The whole repair is worked out on a copy of the affected
 blocks in memory and checked again there. Only then are the original blocks
@@ -53,6 +60,7 @@ With arguments it is a Shell command:
     DiskRepair DH1: DEEP LOST                     ... read all data, search for lost files
     DiskRepair DH1: RESCUE=Work:Saved             copy everything readable to Work:Saved
     DiskRepair DH1: RESCUE=Work:Saved DELETED     ... including deleted files
+    DiskRepair DH1: UNDELETE=Work:Back            copy only deleted files (also after a quick format)
     DiskRepair DH1: DRYRUN                        show what a repair would do
     DiskRepair DH1: REPAIR UNDOFILE=Work:dh1.undo repair in place (asks for YES)
     DiskRepair DH1: UNDO UNDOFILE=Work:dh1.undo   put the old blocks back

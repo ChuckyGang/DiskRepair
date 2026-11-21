@@ -19,9 +19,9 @@
 
 extern BOOL DiskRepair_Debug;
 
-#define TEMPLATE "VOLUME,IMAGE/K,PART/K,LIST/S,CHECK/S,DEEP/S,LOST/S,RESCUE/K,DELETED/S,REPAIR/S,DRYRUN/S,UNDOFILE/K,UNDO/S,FORCE/S,ALL/S,DEBUG/S"
+#define TEMPLATE "VOLUME,IMAGE/K,PART/K,LIST/S,CHECK/S,DEEP/S,LOST/S,RESCUE/K,DELETED/S,REPAIR/S,DRYRUN/S,UNDOFILE/K,UNDO/S,FORCE/S,ALL/S,DEBUG/S,UNDELETE/K"
 enum { A_VOLUME, A_IMAGE, A_PART, A_LIST, A_CHECK, A_DEEP, A_LOST, A_RESCUE, A_DELETED, A_REPAIR,
-       A_DRYRUN, A_UNDOFILE, A_UNDO, A_FORCE, A_ALL, A_DEBUG, A_COUNT };
+       A_DRYRUN, A_UNDOFILE, A_UNDO, A_FORCE, A_ALL, A_DEBUG, A_UNDELETE, A_COUNT };
 
 static void out(const char *s) { PutStr((CONST_STRPTR)s); }
 
@@ -182,11 +182,12 @@ LONG cli_run(void)
             if (!cli_confirm()) { out(GS(MSG_CLI_CANCELLED)); rc = RETURN_WARN; goto done; }
         }
         rc = Fs_Repair(bd, v, &ro, &rep);
-    } else if (args[A_RESCUE]) {
+    } else if (args[A_RESCUE] || args[A_UNDELETE]) {
         struct RescueOpts so;
         struct RescueStats st;
         so.deleted = args[A_DELETED] != 0;
-        rc = Fs_Rescue(bd, v, (const char *)args[A_RESCUE], &so, &rep, &st);
+        so.only_deleted = args[A_UNDELETE] != 0;
+        rc = Fs_Rescue(bd, v, (const char *)(args[A_UNDELETE] ? args[A_UNDELETE] : args[A_RESCUE]), &so, &rep, &st);
     } else {
         struct CheckOpts co;
         co.deep = args[A_DEEP] != 0;

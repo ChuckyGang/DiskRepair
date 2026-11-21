@@ -3,7 +3,7 @@
  *
  * Layout, top to bottom:
  *   listview   one line per partition (name, volume, filesystem, size)
- *   buttons    Check | Repair plan | Repair | Rescue | Undo | Stop
+ *   buttons    Check | Repair plan | Repair | Rescue | Undelete | Undo   (Stop: second row)
  *   options    read all data / search lost files / deleted files too
  *   strings    rescue destination, undo file
  *   buttons    Image... | Rescan | About
@@ -50,7 +50,7 @@ char Gui_StartImage[256];
 
 enum { GID_LIST = 1, GID_CHECK, GID_PLAN, GID_REPAIR, GID_RESCUE, GID_UNDO, GID_STOP,
        GID_DEEP, GID_LOST, GID_DELETED, GID_DEST, GID_UNDOFILE, GID_IMAGE, GID_RESCAN,
-       GID_ABOUT, GID_RESULTS };
+       GID_ABOUT, GID_RESULTS, GID_UNDELETE };
 
 #define MAX_LINES   3000
 #define PATH_LEN    256
@@ -299,7 +299,7 @@ static BOOL gui_progress(void *ud, ULONG done, ULONG total, const char *what)
     return TRUE;
 }
 
-/* what: 0 check, 1 repair plan, 2 repair, 3 rescue, 4 undo */
+/* what: 0 check, 1 repair plan, 2 repair, 3 rescue, 4 undo, 5 undelete */
 static void run_job(struct Gui *g, int what)
 {
     struct VolumeInfo *v;
@@ -314,7 +314,7 @@ static void run_job(struct Gui *g, int what)
     strncpy(dest, gad_string(g->dest_gad), sizeof(dest) - 1); dest[sizeof(dest) - 1] = '\0';
     strncpy(undo, gad_string(g->undo_gad), sizeof(undo) - 1); undo[sizeof(undo) - 1] = '\0';
 
-    if (what == 3 && !dest[0]) { set_status(g, GS(MSG_GUI_NEED_DEST)); ActivateGadget(g->dest_gad, g->win, NULL); return; }
+    if ((what == 3 || what == 5) && !dest[0]) { set_status(g, GS(MSG_GUI_NEED_DEST)); ActivateGadget(g->dest_gad, g->win, NULL); return; }
     if ((what == 2 || what == 4) && !undo[0]) { set_status(g, GS(MSG_GUI_NEED_UNDO)); ActivateGadget(g->undo_gad, g->win, NULL); return; }
     if (what == 2) {
         char body[500];
@@ -331,7 +331,7 @@ static void run_job(struct Gui *g, int what)
     if (!bd) { set_status(g, GS(MSG_GUI_CANNOT_OPEN)); return; }
 
     lines_clear(g);
-    AD_SNPRINTF(head, GS(MSG_GUI_HEAD), GS(MSG_GUI_JOB_CHECK + what), v->dosname);
+    AD_SNPRINTF(head, GS(MSG_GUI_HEAD), (what == 5 ? GS(MSG_BTN_UNDELETE) : GS(MSG_GUI_JOB_CHECK + what)), v->dosname);
     add_line(g, head);
     Rep_Init(&rep);
     rep.ud = g; rep.line = gui_line; rep.progress = gui_progress;
@@ -353,10 +353,11 @@ static void run_job(struct Gui *g, int what)
         ro.dry = (what == 1); ro.undo_path = undo;
         rc = Fs_Repair(bd, v, &ro, &rep);
         break; }
-    case 3: {
+    case 3: case 5: {
         struct RescueOpts so;
         struct RescueStats st;
         so.deleted = g->deleted;
+        so.only_deleted = (what == 5);
         rc = Fs_Rescue(bd, v, dest, &so, &rep, &st);
         break; }
     case 4:
@@ -370,7 +371,7 @@ static void run_job(struct Gui *g, int what)
     lines_attach(g);
     {
         char s[160];
-        AD_SNPRINTF(s, GS(MSG_GUI_DONE), GS(MSG_GUI_JOB_CHECK + what),
+        AD_SNPRINTF(s, GS(MSG_GUI_DONE), (what == 5 ? GS(MSG_BTN_UNDELETE) : GS(MSG_GUI_JOB_CHECK + what)),
                     (unsigned long)rep.count[SEV_ERROR] + rep.count[SEV_FATAL], (unsigned long)rep.count[SEV_WARN]);
         set_status(g, rep.aborted ? GS(MSG_GUI_STOPPED) : s);
     }
@@ -420,6 +421,7 @@ static void handle_msg(struct Gui *g, ULONG iclass, UWORD code, struct Gadget *g
         case GID_REPAIR:  run_job(g, 2); break;
         case GID_RESCUE:  run_job(g, 3); break;
         case GID_UNDO:    run_job(g, 4); break;
+        case GID_UNDELETE: run_job(g, 5); break;
         case GID_DEEP:    g->deep    = (code != 0); break;
         case GID_LOST:    g->lost    = (code != 0); break;
         case GID_DELETED: g->deleted = (code != 0); break;
@@ -451,8 +453,8 @@ static BOOL build_window(struct Gui *g)
     struct Gadget *prev;
     struct NewGadget ng;
     UWORD pad = 4, btn_h, btn_w, lv_h, inner_w, y, bor_r, bor_b, cw, lbl_w, x0, res_h;
-    static const LONG row1[6] = { MSG_BTN_CHECK, MSG_BTN_PLAN, MSG_BTN_REPAIR, MSG_BTN_RESCUE, MSG_BTN_UNDO, MSG_BTN_STOP };
-    static const UWORD id1[6] = { GID_CHECK, GID_PLAN, GID_REPAIR, GID_RESCUE, GID_UNDO, GID_STOP };
+    static const LONG row1[6] = { MSG_BTN_CHECK, MSG_BTN_PLAN, MSG_BTN_REPAIR, MSG_BTN_RESCUE, MSG_BTN_UNDELETE, MSG_BTN_UNDO };
+    static const UWORD id1[6] = { GID_CHECK, GID_PLAN, GID_REPAIR, GID_RESCUE, GID_UNDELETE, GID_UNDO };
     UWORD i;
 
     g->scr = LockPubScreen(NULL);
@@ -499,9 +501,8 @@ static BOOL build_window(struct Gui *g)
     ng.ng_TopEdge = y; ng.ng_Height = btn_h; ng.ng_Width = btn_w;
     for (i = 0; i < 6; i++) {
         ng.ng_LeftEdge = x0 + i * (btn_w + pad);
-        prev = button(g, prev, &ng, row1[i], id1[i], id1[i] == GID_STOP);
+        prev = button(g, prev, &ng, row1[i], id1[i], FALSE);
         if (!prev) return FALSE;
-        if (id1[i] == GID_STOP) g->stop_gad = prev;
     }
     y += btn_h + pad;
 
@@ -547,6 +548,8 @@ static BOOL build_window(struct Gui *g)
     prev = button(g, prev, &ng, MSG_BTN_RESCAN, GID_RESCAN, FALSE); if (!prev) return FALSE;
     ng.ng_LeftEdge += btn_w + pad;
     prev = button(g, prev, &ng, MSG_BTN_ABOUT, GID_ABOUT, FALSE);   if (!prev) return FALSE;
+    ng.ng_LeftEdge = x0 + 5 * (btn_w + pad);                        /* Stop: right end, away from the rest */
+    prev = g->stop_gad = button(g, prev, &ng, MSG_BTN_STOP, GID_STOP, TRUE); if (!prev) return FALSE;
     y += btn_h + pad;
 
     g->status_y = g->win_h - bor_b - pad - g->fh;

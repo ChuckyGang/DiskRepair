@@ -38,6 +38,9 @@ struct Resc {
     UBYTE *seen;                 /* headers this run has copied */
     UBYTE *buf;                  /* RUN_MAX blocks */
     UBYTE *hdr2;                 /* link targets, lost headers */
+    UBYTE *hdr3;                 /* directories above a deleted object */
+    struct FfsScan *s;
+    ULONG  overwritten;
     /* file being copied */
     APTR   fh;
     ULONG  key;
@@ -232,6 +235,49 @@ static void rescue_lost_dir(struct Resc *r, struct FfsOrphan *o, const char *pre
     if (ffs_rd(v, o->key, 1, r->hdr2)) meta(r, r->hdr2, dest);
 }
 
+/* Deleted objects keep their parent pointer, and a deleted directory
+ * keeps its header, so the place a deleted file had can be followed up
+ * to the root - also after a quick format, which only writes a new root
+ * and bitmap.  Builds that directory below prefix and creates it. */
+#define CHAIN_MAX 48
+static BOOL chain_path(struct Resc *r, ULONG dir, const char *prefix, char *out, ULONG outlen)
+{
+    struct FfsVol *v = r->v;
+    ULONG keys[CHAIN_MAX], len;
+    int   n = 0, i, k;
+
+    while (n < CHAIN_MAX && dir != v->root && dir != v->root_calc &&
+           dir >= v->reserved && dir < v->nblocks) {
+        for (k = 0; k < n; k++) if (keys[k] == dir) break;
+        if (k < n) break;
+        if (!ffs_rd(v, dir, 1, r->hdr3) || ffs_header_type(v, r->hdr3, dir) != FFS_ST_USERDIR) break;
+        keys[n++] = dir;
+        dir = ffs_getl(r->hdr3, v->nl - FFS_E_PARENT);
+    }
+    strncpy(out, prefix, outlen - 1);
+    out[outlen - 1] = '\0';
+    len = strlen(out);
+    for (i = n - 1; i >= 0; i--) {
+        char nm[FFS_MAXNAME + 2];
+        if (!ffs_rd(v, keys[i], 1, r->hdr3)) return FALSE;
+        ffs_name(r->hdr3 + (v->nl - FFS_E_NAME) * 4, FFS_MAXNAME, nm, sizeof(nm));
+        if (len + strlen(nm) + 2 >= outlen) return FALSE;
+        if (len) out[len++] = '/';
+        strcpy(out + len, nm);
+        len += strlen(nm);
+        if (!Out_MkDir(out)) return FALSE;
+    }
+    return TRUE;
+}
+
+static BOOL ovw_cb(void *ud, int kind, ULONG seq, ULONG blk)
+{
+    struct Resc *r = (struct Resc *)ud;
+    (void)kind; (void)seq;
+    if (FfsScan_Claim(r->s, blk)) r->overwritten++;
+    return TRUE;
+}
+
 LONG FfsRescue_Run(struct BlockDev *bd, const struct VolumeInfo *vi,
                    const struct RescueOpts *opts, struct Report *rep,
                    struct RescueStats *st)
@@ -257,12 +303,14 @@ LONG FfsRescue_Run(struct BlockDev *bd, const struct VolumeInfo *vi,
     so.deep = FALSE; so.orphans = TRUE;
     r.v = &v; r.rep = rep; r.st = st;
     r.seen = (UBYTE *)AllocVec(v.nblocks / 8 + 2, MEMF_PUBLIC | MEMF_CLEAR);
-    r.buf  = (UBYTE *)AllocVec(v.bsz * (RUN_MAX + 1), MEMF_PUBLIC);
+    r.buf  = (UBYTE *)AllocVec(v.bsz * (RUN_MAX + 2), MEMF_PUBLIC);
     if (!r.seen || !r.buf || !FfsScan_Init(&s, &v, rep, &so)) {
         Rep_Add(rep, SEV_FATAL, "%s", GS(MSG_OUT_OF_MEMORY));
         goto out;
     }
     r.hdr2 = r.buf + v.bsz * RUN_MAX;
+    r.hdr3 = r.hdr2 + v.bsz;
+    r.s = &s;
     have_scan = TRUE;
     s.quiet = TRUE;
 
@@ -271,12 +319,12 @@ LONG FfsRescue_Run(struct BlockDev *bd, const struct VolumeInfo *vi,
     if (!tree) Rep_Add(rep, SEV_WARN, "%s", GS(MSG_S_NO_ROOT));
     if (!FfsScan_Orphans(&s)) goto out;
 
-    if (tree) {
+    if (tree && !opts->only_deleted) {
         if (!ffs_walk(&v, v.root, "", r.seen, resc_visitor(&r, &vis))) goto out;
     }
     /* lost directories: first those no other lost directory holds, then
      * whatever is still not copied */
-    for (pass = 0; pass < 2 && !rep->aborted; pass++) {
+    for (pass = 0; pass < 2 && !rep->aborted && !opts->only_deleted; pass++) {
         for (i = 0; i < s.norph && !rep->aborted; i++) {
             struct FfsOrphan *o = &s.orph[i];
             ULONG parent;
@@ -293,32 +341,61 @@ LONG FfsRescue_Run(struct BlockDev *bd, const struct VolumeInfo *vi,
             rescue_lost_dir(&r, o, prefix);
         }
     }
+    /* deleted directories, so that empty ones come back too */
+    for (i = 0; i < s.norph && !rep->aborted && (opts->deleted || opts->only_deleted); i++) {
+        struct FfsOrphan *o = &s.orph[i];
+        char dir[FFS_PATHMAX];
+        const char *prefix = opts->only_deleted ? "" : GS(MSG_DELETED_NAME);
+        if (o->sectype != FFS_ST_USERDIR || !o->deleted) continue;
+        if (prefix[0] && !ensure_dir(&r, prefix, &del_made)) continue;
+        if (chain_path(&r, o->key, prefix, dir, sizeof(dir))) st->dirs++;
+        if (!Rep_Progress(rep, i, s.norph, dir)) break;
+    }
     for (i = 0; i < s.norph && !rep->aborted; i++) {
         struct FfsOrphan *o = &s.orph[i];
-        char nm[FFS_MAXNAME + 2], path[FFS_MAXNAME + 48];
+        char nm[FFS_MAXNAME + 2], path[FFS_PATHMAX];
         const char *prefix;
         if (o->sectype != FFS_ST_FILE || BIT(r.seen, o->key)) continue;
-        if (o->deleted && !opts->deleted) continue;
+        if (o->deleted ? !(opts->deleted || opts->only_deleted) : opts->only_deleted) continue;
         if (!ffs_rd(&v, o->key, 1, r.hdr2) || ffs_header_type(&v, r.hdr2, o->key) != FFS_ST_FILE) continue;
-        if (o->deleted) {
-            if (!ensure_dir(&r, GS(MSG_DELETED_NAME), &del_made)) continue;
-            prefix = GS(MSG_DELETED_NAME);
-            st->deleted++;
-        } else if (!tree && ffs_getl(r.hdr2, v.nl - FFS_E_PARENT) == v.root_calc) {
-            prefix = "";
-            st->lost++;
-        } else {
-            if (!ensure_dir(&r, GS(MSG_LOSTFOUND_NAME), &lf_made)) continue;
-            prefix = GS(MSG_LOSTFOUND_NAME);
-            st->lost++;
-        }
         ffs_name(r.hdr2 + (v.nl - FFS_E_NAME) * 4, FFS_MAXNAME, nm, sizeof(nm));
-        if (prefix[0]) snprintf(path, sizeof(path), "%s/%s", prefix, nm);
-        else           snprintf(path, sizeof(path), "%s", nm);
+        if (o->deleted) {
+            ULONG len;
+            prefix = opts->only_deleted ? "" : GS(MSG_DELETED_NAME);
+            if (prefix[0] && !ensure_dir(&r, prefix, &del_made)) continue;
+            if (!chain_path(&r, ffs_getl(r.hdr2, v.nl - FFS_E_PARENT), prefix, path, sizeof(path))) {
+                /* the old place cannot be made: keep the file anyway */
+                strncpy(path, prefix, sizeof(path) - 1);
+                path[sizeof(path) - 1] = '\0';
+            }
+            len = strlen(path);
+            if (len + strlen(nm) + 2 >= sizeof(path)) continue;
+            if (len) path[len++] = '/';
+            strcpy(path + len, nm);
+            st->deleted++;
+            r.overwritten = 0;
+            ffs_file_blocks(&v, o->key, r.hdr2, ovw_cb, &r, NULL);
+            if (r.overwritten) {
+                Rep_Add(rep, SEV_WARN, GS(MSG_S_DEL_OVERWRITTEN), path, (unsigned long)r.overwritten);
+                st->partial++;
+            }
+        } else {
+            if (!tree && ffs_getl(r.hdr2, v.nl - FFS_E_PARENT) == v.root_calc) {
+                prefix = "";
+            } else {
+                if (!ensure_dir(&r, GS(MSG_LOSTFOUND_NAME), &lf_made)) continue;
+                prefix = GS(MSG_LOSTFOUND_NAME);
+            }
+            st->lost++;
+            if (prefix[0]) snprintf(path, sizeof(path), "%s/%s", prefix, nm);
+            else           snprintf(path, sizeof(path), "%s", nm);
+        }
         SETBIT(r.seen, o->key);
         /* hdr2 is this file's header; copy_file() does not use hdr2 */
         copy_file(&r, o->key, r.hdr2, path);
     }
+    if (opts->only_deleted && !rep->aborted && st->deleted == 0 && st->dirs == 0)
+        Rep_Add(rep, SEV_INFO, "%s", GS(MSG_S_UNDEL_NONE));
     if (v.read_errors) Rep_Add(rep, SEV_WARN, GS(MSG_F_READERRORS), (unsigned long)v.read_errors);
     if (rep->aborted)                     rc = RETURN_WARN;
     else if (st->failed)                  rc = RETURN_ERROR;

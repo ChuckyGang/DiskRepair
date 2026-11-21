@@ -75,7 +75,7 @@ jobs:
           python3 test/repairtest.py all --fuzz 60
 
       - name: Window test (headless)
-        run: python3 test/guitest.py
+        run: python3 test/guitest.py && python3 test/undeletetest.py
 
       - name: Upload Linux binaries
         uses: actions/upload-artifact@v4

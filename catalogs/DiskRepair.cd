@@ -530,3 +530,27 @@ asl.library is needed for the file requester.
 MSG_ABOUT_BODY
 DiskRepair %s (%s)\n\nChecks and repairs Amiga filesystems, or\ncopies what is readable to another place.\n\nExperimental. No responsibility is taken\nfor lost data.
 ;
+MSG_F_DEL_OK
+Deleted file '%s' (%lu bytes) is still complete on the disk.
+;
+MSG_F_DEL_PARTLY
+Deleted file '%s' (%lu bytes) is partly overwritten or damaged.
+;
+MSG_F_DEL_MORE
+... and %lu more deleted files.
+;
+MSG_F_DEL_HINT
+Deleted files can be copied out with a rescue that includes deleted files.
+;
+MSG_R_DELETED
+%lu deleted files are still on the disk. Repair does not bring them back: Check lists them, Rescue copies them out.
+;
+MSG_BTN_UNDELETE
+Undelete
+;
+MSG_S_DEL_OVERWRITTEN
+'%s': %lu blocks of this deleted file belong to other files now; its content is not reliable.
+;
+MSG_S_UNDEL_NONE
+No deleted files were found on this volume.
+;

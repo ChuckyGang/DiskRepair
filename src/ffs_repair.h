@@ -22,6 +22,7 @@ LONG FfsRepair_Run(struct BlockDev *bd, const struct VolumeInfo *vi,
 
 struct RescueOpts {
     BOOL deleted;            /* also copy deleted files that are still on the disk */
+    BOOL only_deleted;       /* undelete: copy nothing but the deleted files */
 };
 
 struct RescueStats {

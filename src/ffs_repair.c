@@ -336,6 +336,7 @@ LONG FfsRepair_Run(struct BlockDev *bd, const struct VolumeInfo *vi,
     n = ffs_ovl_count(&v);
     if (n == 0) {
         Rep_Add(rep, SEV_INFO, "%s", GS(MSG_R_NOTHING));
+        if (have_scan && s.deleted) Rep_Add(rep, SEV_INFO, GS(MSG_R_DELETED), (unsigned long)s.deleted);
         rc = RETURN_OK;
     } else if (opts->dry) {
         Rep_Add(rep, SEV_INFO, GS(MSG_R_DRY_SUMMARY), (unsigned long)n);
